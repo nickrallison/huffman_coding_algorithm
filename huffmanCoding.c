@@ -11,24 +11,24 @@ huffmanNode* head;
 
 
 // The encoding scheme is a huffman coder
-int byte_compress(int data_ptr[], int data_size) {
+int byte_compress(int data_ptr[], int data_size) { // Should have an overall runtime of O(data_size + unique_bytes^2)
     
     // Creates two matching arrays to sort the byte array by frequency at which each byte appears
     // The frequency of a byte is the number of occurences of said byte
     int freqArray[128] = {0};
     int byteArray[128] = {0};
-    for (int byte = 0; byte < 128; byte++) {
+    for (int byte = 0; byte < 128; byte++) { // O(1)
         byteArray[byte] = byte;
     }
-    for (int data_index = 0; data_index < data_size; data_index++) {
+    for (int data_index = 0; data_index < data_size; data_index++) { // O(data_size)
         freqArray[data_ptr[data_index]]++;
     }
-    bubbleSort(freqArray, byteArray, 128);
+    bubbleSort(freqArray, byteArray, 128); // O(128^2) = O(1)
 
     // Takes bytes which have been used and matches them to a node which will be placed in a Huffman tree
     int len = 0;
     huffmanNode* treeQueue[128];
-    for (int i = 0; i < 128; i++) {
+    for (int i = 0; i < 128; i++) { // O(1)
         if (freqArray[i] != 0) {
             treeQueue[len] = newNode(byteArray[i], freqArray[i]);
             len++;
@@ -41,7 +41,7 @@ int byte_compress(int data_ptr[], int data_size) {
     // Takes the two nodes at the lowest frequency and creates a new node of which they are the children
     // The resulting node as a frequency of the sum of the children
     // Then it is then added back into the array in the correct spot to stay ordered correctly
-    while (len > 1) {
+    while (len > 1) { // O(UniqueBytes^2)
         huffmanNode* node =  newNode(0, treeQueue[1]->freq + treeQueue[0]->freq);
         node->leftNode = treeQueue[0];
         node->rightNode = treeQueue[1];
@@ -49,7 +49,7 @@ int byte_compress(int data_ptr[], int data_size) {
         memmove(&treeQueue[0], &treeQueue[2], (len - 2) * sizeof treeQueue[0]);
         len = len - 2;
         int index = len;
-        for (int i = 0; i < len; i++) {
+        for (int i = 0; i < len; i++) { // O(UniqueBytes)
             if (node->freq <= treeQueue[i]->freq) {
                 index = i;
                 break;
@@ -102,7 +102,7 @@ int byte_compress(int data_ptr[], int data_size) {
     // Depths are also preserved so 001 isn't reduced to just 1 
     int byteKeys[128] = {0};
     int depth[128] = {0};
-    recursiveKeys(head, byteKeys, depth, 0, 0);
+    recursiveKeys(head, byteKeys, depth, 0, 0); // O(uniquelog(unique))
 
     // Array created to house the compressed data
     int newLen = newsize(data_ptr, data_size, depth);
@@ -112,10 +112,10 @@ int byte_compress(int data_ptr[], int data_size) {
 
     // Encoding the data bit by bit into the new array 
     // It converts a bit into its unique key to traverse the tree, then feeds that key in, for each byte
-    for (int index = 0; index < data_size; index++) {
+    for (int index = 0; index < data_size; index++) { //O(data_size)
         int sizeCompressed = bitLeng(byteKeys[data_ptr[index]]);
 
-        for (int leadingzeroes = 0; leadingzeroes < depth[data_ptr[index]] - sizeCompressed; leadingzeroes++) {
+        for (int leadingzeroes = 0; leadingzeroes < depth[data_ptr[index]] - sizeCompressed; leadingzeroes++) { // O(1) 
             if (compressedBit > 7) {
                 compressedBit -= 8;
                 compressedIndex++;
@@ -124,7 +124,7 @@ int byte_compress(int data_ptr[], int data_size) {
             compressedBit++;
         }
 
-        for (int keyBitIndex = sizeCompressed - 1; keyBitIndex >= 0; keyBitIndex--) {
+        for (int keyBitIndex = sizeCompressed - 1; keyBitIndex >= 0; keyBitIndex--) { // O(1) 
             if (compressedBit > 7) {
                 compressedBit -= 8;
                 compressedIndex++;
@@ -138,7 +138,7 @@ int byte_compress(int data_ptr[], int data_size) {
     // Replacing initial array with compressed array
 
     for (int i = 0; i < newLen; i++) {
-        data_ptr[i] = compressedArray[i];
+        data_ptr[i] = compressedArray[i]; // O(newlen) <= O(data_size)
     }
     return newLen;
 }
@@ -146,6 +146,7 @@ int byte_compress(int data_ptr[], int data_size) {
 
 // This is O(n^2), but we will only every need to sory 128 items
 // the increase in performance from quicksort or merge sort should be negligible
+// This ends up at constant time because the same number of sorts are needed no matter the size of the input buffer
 
 void bubbleSort(int freqArray[], int byteArray[], int data_size) { 
     for (int reps = 0; reps < data_size - 1; reps++) {
