@@ -1,4 +1,4 @@
-void byte_compress(int data_ptr[], int data_size);
+int byte_compress(int data_ptr[], int data_size);
 
 void bubbleSort(int freqArray[], int byteArray[], int data_size);
 
@@ -19,7 +19,6 @@ huffmanNode* newNode(int byte, int freq);
 
 void recursiveKeys(huffmanNode* head, int* bitsArray, int* modified, int depth, int path);
 
-void print2DUtil(huffmanNode* root, int space);
- 
-// Wrapper over print2DUtil()
-void print2D(huffmanNode* root);
+int bitLeng(int x);
+
+int newsize(int data_ptr[], int data_size, int depth[]);

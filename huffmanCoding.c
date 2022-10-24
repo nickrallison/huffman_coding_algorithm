@@ -1,41 +1,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "huffmanCoding.h"
 
 #define COUNT 10
 
-void byte_compress(int data_ptr[], int data_size) {
+huffmanNode* head;
+
+
+// The encoding scheme is a huffman coder
+int byte_compress(int data_ptr[], int data_size) {
+    
+    // Creates two matching arrays to sort the byte array by frequency at which each byte appears
+    // The frequency of a byte is the number of occurences of said byte
     int freqArray[128] = {0};
     int byteArray[128] = {0};
-
     for (int byte = 0; byte < 128; byte++) {
         byteArray[byte] = byte;
     }
-
     for (int data_index = 0; data_index < data_size; data_index++) {
         freqArray[data_ptr[data_index]]++;
     }
-
     bubbleSort(freqArray, byteArray, 128);
 
-    /*for (int i = 0; i < 128; i++) {
-        if (freqArray[i] != 0) {
-            printf("%i ", byteArray[i]);
-        }
-    }
-    printf("\n");
-    for (int i = 0; i < 128; i++) {
-        if (freqArray[i] != 0) {
-            printf("%i ", freqArray[i]);
-        }
-    }
-    printf("\n");*/
-
+    // Takes bytes which have been used and matches them to a node which will be placed in a Huffman tree
     int len = 0;
     huffmanNode* treeQueue[128];
-
     for (int i = 0; i < 128; i++) {
         if (freqArray[i] != 0) {
             treeQueue[len] = newNode(byteArray[i], freqArray[i]);
@@ -43,27 +35,19 @@ void byte_compress(int data_ptr[], int data_size) {
         }
     }
 
+    // Saves the number of unique bytes
     int unique = len;
 
+    // Takes the two nodes at the lowest frequency and creates a new node of which they are the children
+    // The resulting node as a frequency of the sum of the children
+    // Then it is then added back into the array in the correct spot to stay ordered correctly
     while (len > 1) {
-        for (int i = 0; i < len; i++) {
-            //printf("%i ", treeQueue[i]->freq);
-        }
-        //printf("\n");
         huffmanNode* node =  newNode(0, treeQueue[1]->freq + treeQueue[0]->freq);
         node->leftNode = treeQueue[0];
         node->rightNode = treeQueue[1];
 
         memmove(&treeQueue[0], &treeQueue[2], (len - 2) * sizeof treeQueue[0]);
         len = len - 2;
-        /*for (int i = 0; i < len; i++) {
-            printf("%i ", treeQueue[i]->freq);
-        }
-        printf("\n");
-        for (int i = 0; i < len; i++) {
-            printf("%i ", treeQueue[i]->byte);
-        }
-        printf("\n");*/
         int index = len;
         for (int i = 0; i < len; i++) {
             if (node->freq <= treeQueue[i]->freq) {
@@ -71,29 +55,96 @@ void byte_compress(int data_ptr[], int data_size) {
                 break;
             }
         }
-        //printf("Index: %i\n", index);
         memmove(&treeQueue[index + 1], &treeQueue[index], (len - index) * sizeof treeQueue[0]);
         (treeQueue[index]) = node;
         len++;
 
     }
-    print2D(treeQueue[0]);
-    //printf("%i\n",treeQueue[0]->rightNode->rightNode->rightNode->byte);
+    head = treeQueue[0];
+    /* A view of the resulting tree from the example data
+                                            64
 
-    int* byteKeys = (int*) malloc(128*sizeof(int));
-    int modified[128] = {0};
-    recursiveKeys(treeQueue[0], byteKeys, modified, 0, 0);
-    for (int i = 0; i < 128; i++) {
-        if (modified[i] == 1) {
-            printf("%x, %i\n", byteKeys[i], i);
+                                0
+
+                                        56
+
+                    0
+
+                                        9
+
+                                0
+
+                                        4
+
+            0
+
+                                0
+
+                    0
+
+                                                            45
+
+                                                    0
+
+                                                            3
+
+                                        0
+
+                                                    74
+
+                                0
+
+                                        35
+    */
+
+    // Encoding the tree into the keys of which each byte maps to
+    // Left in the tree maps to 0, right maps to 1
+    // Depths are also preserved so 001 isn't reduced to just 1 
+    int byteKeys[128] = {0};
+    int depth[128] = {0};
+    recursiveKeys(head, byteKeys, depth, 0, 0);
+
+    // Array created to house the compressed data
+    int newLen = newsize(data_ptr, data_size, depth);
+    int* compressedArray = (int*) malloc(newLen*sizeof(int));
+    int compressedIndex = 0;
+    int compressedBit = 0;
+
+    // Encoding the data bit by bit into the new array 
+    // It converts a bit into its unique key to traverse the tree, then feeds that key in, for each byte
+    for (int index = 0; index < data_size; index++) {
+        int sizeCompressed = bitLeng(byteKeys[data_ptr[index]]);
+
+        for (int leadingzeroes = 0; leadingzeroes < depth[data_ptr[index]] - sizeCompressed; leadingzeroes++) {
+            if (compressedBit > 7) {
+                compressedBit -= 8;
+                compressedIndex++;
+            }  
+            
+            compressedBit++;
+        }
+
+        for (int keyBitIndex = sizeCompressed - 1; keyBitIndex >= 0; keyBitIndex--) {
+            if (compressedBit > 7) {
+                compressedBit -= 8;
+                compressedIndex++;
+            } 
+            compressedArray[compressedIndex] |= (((byteKeys[data_ptr[index]]) & (1 << keyBitIndex)) >> keyBitIndex) << compressedBit;
+            
+            compressedBit++;
         }
     }
-    
-    
+
+    // Replacing initial array with compressed array
+
+    for (int i = 0; i < newLen; i++) {
+        data_ptr[i] = compressedArray[i];
+    }
+    return newLen;
 }
 
 
-// Yes it is O(n^2), Assuming we will only be sorting Bytes to size 7f, 
+// This is O(n^2), but we will only every need to sory 128 items
 // the increase in performance from quicksort or merge sort should be negligible
 
 void bubbleSort(int freqArray[], int byteArray[], int data_size) { 
@@ -113,6 +164,8 @@ void bubbleSort(int freqArray[], int byteArray[], int data_size) {
     }
 }
 
+// Allocates space for new tree node
+
 huffmanNode* newNode(int byte, int freq) {
     huffmanNode* node = (huffmanNode*) malloc(sizeof(huffmanNode));
     node->byte = byte;
@@ -122,46 +175,36 @@ huffmanNode* newNode(int byte, int freq) {
     return node;
 }
 
-void recursiveKeys(huffmanNode* head, int* bitsArray, int* modified, int depth, int path) {
+// Recursively generates keys for each node in the tree
+
+void recursiveKeys(huffmanNode* head, int* bitsArray, int* depth, int depthCur, int path) {
     if (head->leftNode == NULL && head->rightNode == NULL) {
         bitsArray[head->byte] = path;
-        modified[head->byte] = 1;
-        printf("%i \n", head->byte);
+        depth[head->byte] = depthCur;
     }
     else {
-        //printf("%x %x ", head->leftNode->byte, head->rightNode->byte);
-        recursiveKeys(head->leftNode, bitsArray, modified, depth + 1, (path << 1));
-        recursiveKeys(head->rightNode, bitsArray, modified, depth + 1, (path << 1) + 1);
+        recursiveKeys(head->leftNode, bitsArray, depth, depthCur + 1, (path << 1));
+        recursiveKeys(head->rightNode, bitsArray, depth, depthCur + 1, (path << 1) + 1);
     }
 }
 
+// Calculates binary length of number ....00110101 would return 6
 
-void print2DUtil(huffmanNode* root, int space)
-{
-    // Base case
-    if (root == NULL)
-        return;
- 
-    // Increase distance between levels
-    space += COUNT;
- 
-    // Process right child first
-    print2DUtil(root->rightNode, space);
- 
-    // Print current node after space
-    // count
-    printf("\n");
-    for (int i = COUNT; i < space; i++)
-        printf(" ");
-    printf("%d\n", root->byte);
- 
-    // Process left child
-    print2DUtil(root->leftNode, space);
+int bitLeng(int x) {
+    int count = 0;
+    while (x) {
+        x >>= 1;
+        count++;
+    }
+    return count;
 }
- 
-// Wrapper over print2DUtil()
-void print2D(huffmanNode* root)
-{
-    // Pass initial space count as 0
-    print2DUtil(root, 0);
+
+// Calculates size needed to allocate new array
+
+int newsize(int data_ptr[], int data_size, int depth[]) {
+    int bitsize = 0;
+    for (int index = 0; index < data_size; index++) {
+        bitsize += depth[data_ptr[index]];
+    }
+    return ceil(bitsize / 8.0);
 }
